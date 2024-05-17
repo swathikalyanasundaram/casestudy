@@ -8,16 +8,16 @@ class PayrollService:
 
     def process_payroll_for_multiple_employees(self, employees_data):
         for employee_data in employees_data:
-            # Extract employee data
+            
             employee_id = employee_data["id"]
             basic_salary = employee_data["basic_salary"]
             overtime_pay = employee_data["overtime_pay"]
             deductions = employee_data["deductions"]
 
-            # Perform payroll processing for each employee
+            
             net_salary = self.calculate_net_salary_after_deductions(basic_salary, overtime_pay, deductions)
             
-            # Further processing: Insert payroll record into database
+            
             self.cursor.execute(
                 """
                 INSERT INTO PayrollRecords (EmployeeID, BasicSalary, OvertimePay, Deductions, NetSalary)
@@ -46,15 +46,15 @@ class PayrollService:
         self.cursor.execute("SELECT * FROM Employee WHERE EmployeeID = ?", (employee_id,))
         employee = self.cursor.fetchone()
 
-        # Perform payroll calculations
-        basic_salary = 2000  # Example basic salary
-        overtime_hours = 10  # Example overtime hours
-        overtime_rate = 20  # Example overtime rate per hour
-        deductions = 500  # Example deductions
+       #example 
+        basic_salary = 2000   
+        overtime_hours = 10  
+        overtime_rate = 20  
+        deductions = 500  
 
         net_salary = basic_salary + (overtime_hours * overtime_rate) - deductions
 
-        # Insert payroll data into the database
+        
         self.cursor.execute(
             """
             INSERT INTO Payroll (EmployeeID, PayPeriodStartDate, PayPeriodEndDate, BasicSalary, OvertimeHours, OvertimeRate, Deductions, NetSalary)

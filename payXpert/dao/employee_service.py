@@ -12,22 +12,22 @@ class EmployeeService:
             print(employee)
 
     def create_employee(self, employee_data):
-        # Validate date formats
+        
         try:
-            for i in [2, 8, 9]:  # Indices of date fields in employee_data tuple
+            for i in [2, 8, 9]:  
                 if employee_data[i]:
-                    datetime.strptime(employee_data[i], '%Y-%m-%d')  # Validate date format if not empty
+                    datetime.strptime(employee_data[i], '%Y-%m-%d')  
         except ValueError:
             print("Invalid date format. Date should be in YYYY-MM-DD format.")
-            return  # Stop execution if date format is invalid
+            return  
         
-        # Proceed with insertion
+        
         self.cursor.execute(
             """
             INSERT INTO Employee (FirstName, LastName, DateOfBirth, Gender, Email, PhoneNumber, Address, Position, JoiningDate, TerminationDate)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            employee_data,  # No need to exclude EmployeeID
+            employee_data, 
         )
         self.conn.commit()
         print("Employee inserted successfully.")
@@ -38,14 +38,14 @@ class EmployeeService:
         print("Employee deleted successfully.")
 
     def update_employee(self, employee_data):
-        # Validate date formats
+        
         try:
-            for i in [2, 8, 9]:  # Indices of date fields in employee_data tuple
+            for i in [2, 8, 9]: 
                 if employee_data[i]:
-                    datetime.strptime(employee_data[i], '%Y-%m-%d')  # Validate date format if not empty
+                    datetime.strptime(employee_data[i], '%Y-%m-%d') 
         except ValueError:
             print("Invalid date format. Date should be in YYYY-MM-DD format.")
-            return  # Stop execution if date format is invalid
+            return 
         
         # Proceed with update
         self.cursor.execute(

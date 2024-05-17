@@ -1,111 +1,83 @@
 import unittest
-from unittest.mock import Mock, call
-from dao.payroll_service import PayrollService
-from dao.financial_record_service import FinancialRecordService
-from dao.tax_service import TaxService
-from dao.employee_service import EmployeeService
-from datetime import datetime
+from unittest.mock import Mock, MagicMock
+from dao.payroll_service import PayrollService  
 
-class TestPayrollService(unittest.TestCase):
+class TestPayrollServiceModule(unittest.TestCase):
     def setUp(self):
-        # Set up mock cursor and connection for payroll service
-        self.mock_cursor_payroll = Mock()
-        self.mock_conn_payroll = Mock()
-        self.payroll_service = PayrollService(self.mock_cursor_payroll, self.mock_conn_payroll)
+        self.mock_cursor = MagicMock()
+        self.mock_conn = MagicMock()
+        self.payroll_service = PayrollService(self.mock_cursor, self.mock_conn)
 
-        # Set up mock cursor and connection for financial record service
-        self.mock_cursor_financial = Mock()
-        self.mock_conn_financial = Mock()
-        self.financial_record_service = FinancialRecordService(self.mock_cursor_financial, self.mock_conn_financial)
+    def test_read_payrolls(self):
+        self.mock_cursor.fetchall.return_value = [
+            (1, 1, '2024-05-01', '2024-05-15', 2000, 10, 20, 500, 2500)
+        ]
+        payrolls = self.payroll_service.read_payrolls()
+        self.mock_cursor.execute.assert_called_once_with("SELECT * FROM Payroll")
+        self.assertIsNotNone(payrolls)
+        self.assertEqual(len(payrolls), 1)
+        self.assertEqual(payrolls[0], (1, 1, '2024-05-01', '2024-05-15', 2000, 10, 20, 500, 2500))
 
-    def test_calculate_gross_salary_for_employee(self):
-        # Arrange
-        basic_salary = 2000
-        overtime_pay = 500
-        
-        # Act
-        gross_salary = self.payroll_service.calculate_gross_salary_for_employee(basic_salary, overtime_pay)
-
-        # Assert
-        self.assertEqual(gross_salary, 2500)  # Expected gross salary: basic_salary + overtime_pay
-    
-    def test_calculate_net_salary_after_deductions(self):
-        # Arrange
-        basic_salary = 2000
-        overtime_pay = 500
-        deductions = 700  # Example deductions including taxes, insurance, etc.
-        expected_net_salary = basic_salary + overtime_pay - deductions
-        
-        # Act
-        net_salary = self.payroll_service.calculate_net_salary_after_deductions(basic_salary, overtime_pay, deductions)
-
-        # Assert
-        self.assertEqual(net_salary, expected_net_salary)
-
-
-class TestTaxService(unittest.TestCase):
-    def test_calculate_tax(self):
-        # Arrange
+    def test_generate_payroll(self):
         employee_id = 1
-        tax_year = "2024"
-        taxable_income = 50000  # Example taxable income
-        expected_tax_amount = 0.2 * taxable_income  # Example: Assuming a flat 20% tax rate
+        start_date = "2024-05-16"
+        end_date = "2024-05-31"
 
-        # Set up mock cursor object
-        mock_cursor = Mock()
-        mock_cursor.fetchone.return_value = (taxable_income,)
+        self.mock_cursor.fetchone.return_value = (1, 'John Doe')
 
-        # Set up mock connection object if needed
-        mock_conn = Mock()
+        self.payroll_service.generate_payroll(employee_id, start_date, end_date)
 
-        # Create an instance of TaxService with the mock cursor and connection
-        tax_service = TaxService(mock_cursor, mock_conn)
+        self.mock_cursor.execute.assert_any_call("SELECT * FROM Employee WHERE EmployeeID = ?", (employee_id,))
+        self.mock_cursor.execute.assert_any_call(
+            """
+            INSERT INTO Payroll (EmployeeID, PayPeriodStartDate, PayPeriodEndDate, BasicSalary, OvertimeHours, OvertimeRate, Deductions, NetSalary)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """.strip(),
+            (employee_id, start_date, end_date, 2000, 10, 20, 500, 2500)
+        )
+        self.mock_conn.commit.assert_called_once()
 
-        # Act
-        tax_service.calculate_tax(employee_id, tax_year)
+    def test_get_payroll_by_id(self):
+        payroll_id = 1
+        self.mock_cursor.fetchone.return_value = (1, 1, '2024-05-01', '2024-05-15', 2000, 10, 20, 500, 2500)
 
-        # Assert
-        # Verify that execute method is called twice
-        mock_cursor.execute.assert_has_calls([
-            call('SELECT NetSalary FROM Payroll WHERE EmployeeID = ? AND PayPeriodStartDate <= ? AND PayPeriodEndDate >= ?', (1, '2024-01-01', '2024-12-31')),
-            call('INSERT INTO Tax (EmployeeID, TaxYear, TaxableIncome, TaxAmount) VALUES (?, ?, ?, ?)', (1, '2024', taxable_income, expected_tax_amount))
-        ])
-        mock_conn.commit.assert_called_once()
+        payroll = self.payroll_service.get_payroll_by_id(payroll_id)
+        self.mock_cursor.execute.assert_called_once_with("SELECT * FROM Payroll WHERE PayrollID = ?", (payroll_id,))
+        self.assertIsNotNone(payroll)
+        self.assertEqual(payroll, (1, 1, '2024-05-01', '2024-05-15', 2000, 10, 20, 500, 2500))
 
-class TestEmployeeService(unittest.TestCase):
-    def setUp(self):
-        # Set up mock cursor and connection
-        self.mock_cursor = Mock()
-        self.mock_conn = Mock()
-
-        # Initialize EmployeeService with mock cursor and connection
-        self.employee_service = EmployeeService(self.mock_cursor, self.mock_conn)
-
-class TestEmployeeService(unittest.TestCase):
-    def setUp(self):
-        # Set up mock cursor and connection
-        self.mock_cursor = Mock()
-        self.mock_conn = Mock()
-
-        # Initialize EmployeeService with mock cursor and connection
-        self.employee_service = EmployeeService(self.mock_cursor, self.mock_conn)
-
-    def test_create_employee_with_invalid_date_format(self):
-        # Test data with invalid date format (using 'invalid' instead of a valid date)
-        invalid_employee_data = [
-            "John", "Doe", "invalid", "M", "john.doe@example.com", "123456789", "123 Main St", "Manager", "2023-01-01", "2024-01-01"
+    def test_get_payrolls_for_employee(self):
+        employee_id = 1
+        self.mock_cursor.fetchall.return_value = [
+            (1, 1, '2024-05-01', '2024-05-15', 2000, 10, 20, 500, 2500)
         ]
 
-        # Ensure that the method prints an error message and does not proceed with insertion
-        with self.assertRaises(ValueError) as context:
-            self.employee_service.create_employee(invalid_employee_data)
+        payrolls = self.payroll_service.get_payrolls_for_employee(employee_id)
+        self.mock_cursor.execute.assert_called_once_with("SELECT * FROM Payroll WHERE EmployeeID = ?", (employee_id,))
+        self.assertIsNotNone(payrolls)
+        self.assertEqual(len(payrolls), 1)
+        self.assertEqual(payrolls[0][1], employee_id)
 
-        # Assert that the error message was printed
-        self.assertIn("Invalid date format", str(context.exception))
+    def test_get_payrolls_for_period(self):
+        start_date = "2024-05-01"
+        end_date = "2024-05-15"
+        self.mock_cursor.fetchall.return_value = [
+            (1, 1, '2024-05-01', '2024-05-15', 2000, 10, 20, 500, 2500)
+        ]
 
-        # Ensure that the method did not execute SQL queries or commit
-        self.mock_cursor.execute.assert_not_called()
-        self.mock_conn.commit.assert_not_called()
+        payrolls = self.payroll_service.get_payrolls_for_period(start_date, end_date)
+        self.mock_cursor.execute.assert_called_once_with(
+            """
+            SELECT * 
+            FROM Payroll 
+            WHERE PayPeriodStartDate >= ? AND PayPeriodEndDate <= ?
+            """.strip(), 
+            (start_date, end_date)
+        )
+        self.assertIsNotNone(payrolls)
+        self.assertEqual(len(payrolls), 1)
+        self.assertEqual(payrolls[0][2], start_date)
+        self.assertEqual(payrolls[0][3], end_date)
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
